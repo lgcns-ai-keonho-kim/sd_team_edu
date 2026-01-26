@@ -27,21 +27,16 @@ YES/NO는 간단해 보이지만, LLM은 다음과 같은 변형을 자주 출�
 ### 프롬프트 설계 예시 (LangChain)
 
 ```python
-# 파일: src/examples/yes_no_prompt.py
 """
 목적: YES/NO만 출력하도록 프롬프트를 구성한다.
 설명: 모델이 다른 표현을 쓰지 않도록 제약을 강화한다.
-디자인 패턴: Singleton
+디자인 패턴: 모듈 싱글턴
 참조: docs/04_string_tricks/01_yes_no_파서.md
 """
 
 from langchain_core.prompts import PromptTemplate
 
-
-class YesNoPromptSingleton:
-    """YES/NO 응답용 프롬프트 싱글턴."""
-
-    _prompt = """너는 이진 판단 전문가다.
+_prompt = """너는 이진 판단 전문가다.
 
 [판단 기준]
 - 질문이 조건을 만족하면 YES, 그렇지 않으면 NO.
@@ -57,14 +52,10 @@ class YesNoPromptSingleton:
 
 [출력]
 YES 또는 NO"""
-    _template: PromptTemplate | None = None
-
-    @classmethod
-    def get_template(cls) -> PromptTemplate:
-        """프롬프트 템플릿을 싱글턴으로 반환한다."""
-        if cls._template is None:
-            cls._template = PromptTemplate.from_template(cls._prompt)
-        return cls._template
+prompt = PromptTemplate(
+    template=_prompt,
+    input_variables=["question"],
+)
 ```
 
 ### 프롬프트 예시
@@ -82,7 +73,6 @@ YES/NO는 **다른 프롬프트로 분기**하는 데 특히 유용합니다.
 ### Enum 정의
 
 ```python
-# 파일: src/examples/yes_no_route_enum.py
 """
 목적: YES/NO 라우팅 값을 Enum으로 정의한다.
 설명: 결과에 따라 다른 프롬프트로 분기한다.
@@ -104,7 +94,6 @@ class YesNoRoute(Enum):
 ### YES/NO 파싱 및 프롬프트 라우팅 예시
 
 ```python
-# 파일: src/examples/yes_no_prompt_router.py
 """
 목적: YES/NO 결과에 따라 다른 프롬프트를 선택한다.
 설명: 승인/차단/재질문 프롬프트를 분기한다.

@@ -47,21 +47,16 @@ JSON 유도 프롬프트는 "스키마"와 "금지 규칙"을 매우 구체적�
 ### 프롬프트 설계 예시 (LangChain)
 
 ```python
-# 파일: src/examples/json_only_prompt.py
 """
 목적: JSON 형식만 출력하도록 프롬프트를 만든다.
 설명: 스키마와 금지 규칙을 명확히 전달한다.
-디자인 패턴: Singleton
+디자인 패턴: 모듈 싱글턴
 참조: docs/04_string_tricks/04_json_안전_파싱.md
 """
 
 from langchain_core.prompts import PromptTemplate
 
-
-class JsonOnlyPromptSingleton:
-    """JSON 전용 프롬프트 싱글턴."""
-
-    _prompt = """너는 정보 추출기다. 아래 스키마에 맞는 JSON만 출력하라.
+_prompt = """너는 정보 추출기다. 아래 스키마에 맞는 JSON만 출력하라.
 
 [규칙]
 - JSON 외의 텍스트(설명, 머리말, 코드 펜스, 주석)는 금지한다.
@@ -79,14 +74,10 @@ class JsonOnlyPromptSingleton:
 
 [출력 예시]
 {{"intent": "ORDER_STATUS", "user_id": "u_123", "items": [{{"name": "shoe", "qty": 1}}]}}"""
-    _template: PromptTemplate | None = None
-
-    @classmethod
-    def get_template(cls) -> PromptTemplate:
-        """프롬프트 템플릿을 싱글턴으로 반환한다."""
-        if cls._template is None:
-            cls._template = PromptTemplate.from_template(cls._prompt)
-        return cls._template
+prompt = PromptTemplate(
+    template=_prompt,
+    input_variables=["text"],
+)
 ```
 
 ---
@@ -99,7 +90,6 @@ JSON은 **외부 시스템과 연동**하기 가장 적합한 형식입니다.
 ### 외부 API 호출 예시
 
 ```python
-# 파일: src/examples/intent_api_dispatcher.py
 """
 목적: JSON 필드 값에 따라 외부 API를 호출한다.
 설명: intent 값으로 API 엔드포인트를 분기한다.

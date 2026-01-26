@@ -7,6 +7,10 @@
 
 from fastapi import FastAPI
 
+from firstSession.api.translate.router.translate_router import TranslateRouter
+from firstSession.api.translate.service.translation_service import TranslationService
+from firstSession.core.translate.graphs.translate_graph import TranslateGraph
+
 
 def create_app() -> FastAPI:
     """FastAPI 애플리케이션을 생성한다.
@@ -20,6 +24,11 @@ def create_app() -> FastAPI:
     def health() -> dict[str, str]:
         """간단한 헬스 체크 엔드포인트."""
         return {"status": "ok"}
+
+    graph = TranslateGraph()
+    service = TranslationService(graph)
+    translate_router = TranslateRouter(service)
+    app.include_router(translate_router.router)
 
     return app
 

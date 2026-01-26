@@ -42,26 +42,21 @@ LLM은 종종 다음과 같은 실패를 냅니다.
 
 ---
 
-## 3) 재시도 프롬프트 템플릿 (싱글턴)
+## 3) 재시도 프롬프트 템플릿 (모듈 싱글턴)
 
 아래는 "불량 응답을 기대 형식으로 변환"하는 재시도 프롬프트 예시입니다.
 
 ```python
-# 파일: src/examples/retry_prompt_singleton.py
 """
 목적: 이전 응답을 기대 형식으로 재작성하도록 지시한다.
 설명: 새로운 정보 추가를 금지하고 형식만 복구한다.
-디자인 패턴: Singleton
+디자인 패턴: 모듈 싱글턴
 참조: docs/04_string_tricks/05_retry_logic.md
 """
 
 from langchain_core.prompts import PromptTemplate
 
-
-class RetryPromptSingleton:
-    """불량 응답 복구용 프롬프트 싱글턴."""
-
-    _prompt = """너는 출력 형식 복구기다.
+_prompt = """너는 출력 형식 복구기다.
 
 [규칙]
 - 아래의 기존 응답을 참고하되, 새로운 정보는 추가하지 않는다.
@@ -80,14 +75,10 @@ class RetryPromptSingleton:
 [출력]
 기대 형식에 맞는 결과만 출력하라.
 """
-    _template: PromptTemplate | None = None
-
-    @classmethod
-    def get_template(cls) -> PromptTemplate:
-        """프롬프트 템플릿을 싱글턴으로 반환한다."""
-        if cls._template is None:
-            cls._template = PromptTemplate.from_template(cls._prompt)
-        return cls._template
+prompt = PromptTemplate(
+    template=_prompt,
+    input_variables=["error_reason", "expected_format", "failed_output"],
+)
 ```
 
 ---
@@ -104,7 +95,6 @@ class RetryPromptSingleton:
 ### 예시 코드 (개념)
 
 ```python
-# 파일: src/examples/retry_flow_example.py
 """
 목적: 파싱 실패 시 재시도 프롬프트를 적용한다.
 설명: 실패 응답을 기대 형식으로 재작성하도록 유도한다.
@@ -113,6 +103,7 @@ class RetryPromptSingleton:
 """
 
 from dataclasses import dataclass
+from src.examples.retry_prompt_singleton import prompt as retry_prompt_template
 
 
 @dataclass(frozen=True)
@@ -126,8 +117,7 @@ class RetryFlow:
         if self._is_valid(first_output):
             return first_output
 
-        prompt = RetryPromptSingleton.get_template()
-        retry_prompt = prompt.format(
+        retry_prompt = retry_prompt_template.format(
             expected_format=self.expected_format,
             failed_output=first_output,
             error_reason="출력 형식 위반",
@@ -228,7 +218,6 @@ JSON은 \"살짝 깨진\" 상태로 많이 오기 때문에, LLM 재시도 전�
 ### json-repair 예시 코드
 
 ```python
-# 파일: src/examples/repair_json_parser.py
 """
 목적: json-repair로 JSON 복구 후 파싱한다.
 설명: 1차 파싱 실패 시 복구 절차를 적용한다.

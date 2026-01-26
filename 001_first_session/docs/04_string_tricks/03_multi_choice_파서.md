@@ -32,21 +32,16 @@
 ### 프롬프트 설계 예시 (LangChain)
 
 ```python
-# 파일: src/examples/multi_choice_prompt.py
 """
 목적: 복수 선택 결과를 안정적으로 출력하게 한다.
 설명: 구분자와 정렬 규칙을 명시한다.
-디자인 패턴: Singleton
+디자인 패턴: 모듈 싱글턴
 참조: docs/04_string_tricks/03_multi_choice_파서.md
 """
 
 from langchain_core.prompts import PromptTemplate
 
-
-class MultiChoicePromptSingleton:
-    """복수 선택 응답용 프롬프트 싱글턴."""
-
-    _prompt = """너는 리뷰 분류기다. 해당되는 항목을 모두 선택해라.
+_prompt = """너는 리뷰 분류기다. 해당되는 항목을 모두 선택해라.
 
 [선택지]
 A: 가격
@@ -66,14 +61,10 @@ D: 서비스
 
 [출력]
 A,B 또는 B,D 또는 NONE"""
-    _template: PromptTemplate | None = None
-
-    @classmethod
-    def get_template(cls) -> PromptTemplate:
-        """프롬프트 템플릿을 싱글턴으로 반환한다."""
-        if cls._template is None:
-            cls._template = PromptTemplate.from_template(cls._prompt)
-        return cls._template
+prompt = PromptTemplate(
+    template=_prompt,
+    input_variables=["text"],
+)
 ```
 
 ---
@@ -85,7 +76,6 @@ A,B 또는 B,D 또는 NONE"""
 ### Enum 정의
 
 ```python
-# 파일: src/examples/issue_tag_enum.py
 """
 목적: 리뷰 이슈 라벨을 Enum으로 정의한다.
 설명: 복수 선택 결과를 표준화한다.
@@ -109,7 +99,6 @@ class IssueTag(Enum):
 ### 파싱 및 라우팅 예시
 
 ```python
-# 파일: src/examples/multi_choice_router.py
 """
 목적: 복수 선택 응답을 Enum 리스트로 변환한다.
 설명: 중복 제거와 정렬을 적용한다.
