@@ -37,7 +37,13 @@
 ## 실행 방법
 
 ```bash
-uv run uvicorn firstsession.api.main:app --host 0.0.0.0 --port 8000 --reload
+uv run uvicorn firstsession.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+또는 
+
+```bash
+uv run python -m firstsession.main
 ```
 
 ## 기본 엔드포인트
