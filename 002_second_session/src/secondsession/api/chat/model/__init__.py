@@ -10,6 +10,7 @@ from secondsession.api.chat.model.chat_job_response import ChatJobResponse
 from secondsession.api.chat.model.chat_job_status_response import ChatJobStatusResponse
 from secondsession.api.chat.model.chat_job_cancel_response import ChatJobCancelResponse
 from secondsession.api.chat.model.chat_stream_event import ChatStreamEvent
+from secondsession.api.chat.model.chat_stream_metadata import ChatStreamMetadata
 
 __all__ = [
     "ChatJobRequest",
@@ -17,4 +18,5 @@ __all__ = [
     "ChatJobStatusResponse",
     "ChatJobCancelResponse",
     "ChatStreamEvent",
+    "ChatStreamMetadata",
 ]

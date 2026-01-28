@@ -1,11 +1,16 @@
 # 목적: FastAPI 애플리케이션 진입점을 제공한다.
-# 설명: uvicorn에서 \"thirdSession.main:app\" 형태로 실행할 수 있는 앱 객체를 정의한다.
+# 설명: uvicorn에서 "thirdsession.main:app" 형태로 실행할 수 있는 앱 객체를 정의한다.
 # 디자인 패턴: 팩토리 메서드 패턴(애플리케이션 생성 책임 분리)
-# 참조: thirdSession/api, thirdSession/core
+# 참조: thirdsession/api, thirdsession/core
 
 """FastAPI 애플리케이션 진입점 모듈."""
 
 from fastapi import FastAPI
+
+from thirdsession.api.chat.router.rag_chat_router import create_rag_chat_router
+from thirdsession.api.chat.service.rag_chat_service import RagChatService
+from thirdsession.core.chat.usecases.rag_chat_usecase import RagChatUseCase
+from thirdsession.core.common.app_config import AppConfig
 
 
 def create_app() -> FastAPI:
@@ -14,7 +19,10 @@ def create_app() -> FastAPI:
     Returns:
         FastAPI: 구성된 애플리케이션 인스턴스.
     """
-    app = FastAPI(title="thirdSession API")
+    app = FastAPI(title="thirdsession API")
+
+    # TODO: 환경 설정/의존성 주입 방식을 확장한다.
+    raise NotImplementedError
 
     @app.get("/health", tags=["health"])
     def health() -> dict[str, str]:
@@ -30,4 +38,4 @@ app = create_app()
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("thirdSession.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("thirdsession.main:app", host="0.0.0.0", port=8000, reload=True)

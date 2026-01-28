@@ -6,6 +6,7 @@
 """대화 그래프 패키지."""
 
 from secondsession.core.chat.graphs.chat_graph import build_chat_graph
+from secondsession.core.chat.graphs.parallel_chat_graph import build_parallel_chat_graph
 from secondsession.core.chat.state import ChatState
 
-__all__ = ["build_chat_graph", "ChatState"]
+__all__ = ["build_chat_graph", "build_parallel_chat_graph", "ChatState"]

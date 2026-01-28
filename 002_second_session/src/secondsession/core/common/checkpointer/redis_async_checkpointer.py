@@ -29,10 +29,9 @@ Example:
 """
 
 import pickle
-from typing import Optional, Iterator, Tuple
-from redis.asyncio.cluster import RedisCluster,ClusterNode
-from redis.exceptions import ConnectionError, TimeoutError
-from langgrpah.checkpoint.base import BaseCheckpointSaver, Checkpoint, CheckpointTuple
+from typing import Optional, AsyncIterator
+from redis.asyncio.cluster import RedisCluster
+from langgraph.checkpoint.base import BaseCheckpointSaver, Checkpoint, CheckpointTuple
 
 class AsyncRedisClusterCheckpointSaver(BaseCheckpointSaver):
     """LangGraph용 Redis Cluster 기반 비동기 체크포인트 저장소
@@ -82,7 +81,7 @@ class AsyncRedisClusterCheckpointSaver(BaseCheckpointSaver):
             - checkpoint_ttl과 latest_ttl을 다르게 설정하여 최신 참조를 더 오래 유지할 수 있습니다.
         """
         # Redis 클라이언트 할당 (파라미터 우선, 없으면 전역 변수 사용)
-        self.redis = _redis_cluster if not redis_cluster else redis_cluster
+        self.redis = redis_cluster
         self.ttl = ttl
         # checkpoint_ttl이 지정되지 않으면 기본 ttl 사용
         self.checkpoint_ttl = checkpoint_ttl or ttl
@@ -91,10 +90,10 @@ class AsyncRedisClusterCheckpointSaver(BaseCheckpointSaver):
 
     async def aput(
         self,
-        config:dict,
+        config: dict,
         checkpoint: Checkpoint,
-        metadata:dict,
-        new_versions:dict = None
+        metadata: dict,
+        new_versions: dict | None = None
     ) -> dict:
         """체크포인트를 Redis에 비동기로 저장합니다.
 
@@ -186,7 +185,7 @@ class AsyncRedisClusterCheckpointSaver(BaseCheckpointSaver):
         # TTL 설정에 따라 저장 방식 선택
         if self.checkpoint_ttl:
             # TTL이 있으면 만료 시간과 함께 저장
-            await self.redis.setex(writes_ky, self.checkpoint_ttl, data)
+            await self.redis.setex(writes_key, self.checkpoint_ttl, data)
 
         else:
             # TTL이 없으면 영구 저장
@@ -194,8 +193,8 @@ class AsyncRedisClusterCheckpointSaver(BaseCheckpointSaver):
 
     async def aget(
         self,
-        config:dict
-    ) -> Optional[Checkpoint]:
+        config: dict
+    ) -> Optional[CheckpointTuple]:
         """체크포인트를 Redis에서 비동기로 조회합니다.
 
         특정 checkpoint_id를 조회하거나, 지정되지 않은 경우 최신 체크포인트를 반환합니다.
@@ -260,8 +259,8 @@ class AsyncRedisClusterCheckpointSaver(BaseCheckpointSaver):
         *,
         before: Optional[dict] = None,
         limit: Optional[dict] = None,
-        filter: Optional[dict] = NOne
-    ) -> Iterator[Checkpoint]:
+        filter: Optional[dict] = None
+    ) -> AsyncIterator[CheckpointTuple]:
         """특정 스레드의 체크포인트 목록을 비동기로 조회합니다.
 
         Redis에서 패턴 매칭을 사용하여 스레드의 모든 체크포인트를 조회하고,
@@ -348,7 +347,7 @@ class AsyncRedisClusterCheckpointSaver(BaseCheckpointSaver):
     async def adelete(
         self,
         thread_id: str
-    ):
+    ) -> None:
         """특정 스레드의 모든 체크포인트를 Redis에서 비동기로 삭제합니다.
 
         주어진 thread_id에 해당하는 모든 체크포인트 데이터와 최신 체크포인트 참조를 삭제합니다.

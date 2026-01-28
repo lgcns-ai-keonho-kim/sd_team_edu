@@ -57,6 +57,7 @@ HyDE(Hypothetical Document Embeddings)는 **가상의 답변 문서**를 생성�
 
 - HyDE는 **초기 검색 문서의 형식/톤**을 반영할수록 품질이 높아짐
 - 예: “정책 문서형/FAQ형/가이드형” 등 문서 스타일을 힌트로 제공
+- 스타일 힌트는 **길이 제한/줄바꿈 제거** 등 간단한 정제를 권장
 
 ### 6) 권장 흐름(요약)
 
@@ -82,35 +83,36 @@ from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from textwarp import dedent
+from textwrap import dedent
 
-HYDE_PROMPT = PromptTemplate(
+HYDE_PROMPT = PromptTemplate.from_template(
     dedent(
-    f"""
-    You are generating a hypothetical document to improve retrieval.
-    Write a concise document that would directly answer the user's question.
-    Use the style hint to match tone/format (e.g., policy/FAQ/guide).
-    Rules:
-    - Do not invent citations or sources.
-    - Keep it focused; avoid tangents.
-    - Preserve the user's language.
-    Output plain text only.
-    Question: {{question}}
-    Style hint: {{style_hint}}
-    """.strip()
+        """
+    너는 검색 품질을 높이기 위한 가상 문서를 생성한다.
+    사용자의 질문에 직접 답하는 간결한 문서를 작성하라.
+    스타일 힌트를 활용해 문서 톤/형식을 맞춘다(예: 정책/FAQ/가이드).
+    규칙:
+    - 근거/출처는 임의로 만들지 않는다.
+    - 핵심에 집중하고 불필요한 내용은 피한다.
+    - 사용자 언어를 유지한다.
+    출력은 일반 텍스트만 허용한다.
+    질문: {{question}}
+    스타일 힌트: {{style_hint}}
+        """.strip()
+    )
 )
 
-JUDGE_PROMPT = PromptTemplate(
+JUDGE_PROMPT = PromptTemplate.from_template(
     dedent(
-        f"""
-        You are a sufficiency judge for retrieval results.
-        Decide if the search results contain enough information to answer the question.
-        Criteria:
-        - PASS if a direct answer can be produced without guessing.
-        - FAIL if key details are missing or the results are too generic.
-        Output exactly one token: PASS or FAIL.
-        Question: {{question}}
-        Search summary: {{summary}}
+        """
+        너는 검색 결과의 충분성을 판단하는 심사자다.
+        검색 결과만으로 질문에 답할 수 있는지 판단하라.
+        기준:
+        - PASS: 추측 없이 직접 답변을 만들 수 있음
+        - FAIL: 핵심 정보가 부족하거나 결과가 너무 일반적임
+        출력은 정확히 한 토큰(PASS 또는 FAIL)만 반환한다.
+        질문: {{question}}
+        검색 요약: {{summary}}
         """
     ).strip()
 )
@@ -120,11 +122,9 @@ def node_search(state: dict, store: Any) -> dict:
     """기본 검색을 수행한다."""
     question = state.get("question")
     docs = store.similarity_search(question, k=3)
-    use_hyde = len(docs) < 3
     return {
         "question": question,
         "docs": docs,
-        "use_hyde": use_hyde,
     }
 
 
@@ -145,7 +145,12 @@ def node_hyde(state: dict, store: Any) -> dict:
     """LangChain LLM으로 HyDE 문서를 생성 후 재검색한다."""
     question = state.get("question")
     docs = state.get("docs", [])
-    style_hint = str(docs[0])[:300] if docs else "일반 가이드 문서 형식"
+    if docs:
+        first_doc = docs[0]
+        raw_text = getattr(first_doc, "page_content", str(first_doc))
+        style_hint = raw_text.replace("\n", " ")[:300]
+    else:
+        style_hint = "일반 가이드 문서 형식"
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     hyde_doc = (HYDE_PROMPT | llm).invoke(
         {"question": question, "style_hint": style_hint}
@@ -157,9 +162,9 @@ def node_hyde(state: dict, store: Any) -> dict:
     return {"question": question, "docs": docs, "use_hyde": False}
 
 
-def node_merge(state: dict) -> list[Any]:
+def node_merge(state: dict) -> dict:
     """결과를 반환한다."""
-    return state.get("docs", [])
+    return {"docs": state.get("docs", [])}
 
 
 class AdaptiveHyDEGraph:
@@ -186,6 +191,8 @@ class AdaptiveHyDEGraph:
         """컴파일된 그래프를 반환한다."""
         return self._graph.compile()
 ```
+
+> 예시 코드의 `store`는 **벡터 스토어(vector store)**를 의미합니다.
 
 ---
 

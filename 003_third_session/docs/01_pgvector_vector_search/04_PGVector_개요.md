@@ -1,4 +1,4 @@
-# 01. PGVector 개요
+# 04. PGVector 개요
 
 ## 이 챕터에서 배우는 것
 
@@ -133,6 +133,11 @@ CREATE TABLE documents (
 - **created_at/updated_at**: 변경 이력 관리
 
 > **source_id + chunk_index**는 중복 방지와 재수집에 매우 중요합니다.
+
+**설계 주의사항**
+
+- `language`를 **컬럼과 metadata에 동시에 두면** 정합성이 깨질 수 있다  
+- 하나를 **단일 소스 오브 트루스**로 정하고 나머지는 파생으로 취급한다
 
 ---
 
@@ -317,6 +322,8 @@ LangChain 생태계와의 호환성을 확보하려면 `langchain-postgres`의
 PGVectorStore는 LangChain의 `Document`를 그대로 저장하고 검색할 수 있습니다.
 
 > 참고: LangChain에서는 기존 `PGVector` 대신 `PGVectorStore` 사용이 권장됩니다.
+> 주의: `langchain-postgres`/`langchain-core` 버전에 따라 API 이름과 인자 구성이 달라질 수 있습니다.
+> 공식 문서/릴리스 노트를 확인하고 예제를 맞춰주세요.
 
 ```python
 """
@@ -416,6 +423,7 @@ def embed_text(text: str) -> list[float]:
 아래 코드는 **f-string으로 SQL 템플릿을 구성**하는 예시입니다.
 다만 사용자 입력을 직접 문자열에 넣으면 SQL 인젝션 위험이 있으므로
 **테이블명처럼 고정된 값만 f-string으로 넣고, 데이터는 파라미터로 전달**하세요.
+테이블명을 동적으로 조합해야 한다면 `psycopg.sql.Identifier`를 사용해야 합니다.
 
 ```python
 """

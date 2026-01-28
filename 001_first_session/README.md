@@ -16,7 +16,7 @@
 - 코드 템플릿: `src/firstsession/`
 - 번역 API 엔드포인트: `/api/v1/translate`
 
-## 구현해야 하는 과제(핵심)
+## 구현해야 하는 과제
 
 아래 항목은 코드의 `TODO`/`NotImplementedError`를 기준으로 정리했습니다.
 학습자는 각 항목을 직접 구현해 전체 번역 파이프라인을 완성합니다.

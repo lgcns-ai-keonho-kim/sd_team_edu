@@ -72,6 +72,8 @@ def postprocess_with_metadata(
 ## 4. 여러 데이터 소스를 병합할 때의 후처리
 
 여러 검색 소스(벡터/키워드/하이브리드)를 병합할 때는 **정규화와 다양성 확보**가 핵심입니다.
+아래 예시의 `rerank`는 **개념 함수**이며 실제 구현에서는 별도 Reranker가 필요합니다.
+또한 점수 스케일이 다르면 **거리 → 유사도 변환** 등 사전 변환을 먼저 수행해야 합니다.
 
 ```python
 """
@@ -87,12 +89,13 @@ def normalize_scores(docs: list[dict]) -> list[dict]:
         return docs
     min_v, max_v = min(scores), max(scores)
     if min_v == max_v:
-        for d in docs:
-            d["score"] = 1.0
-        return docs
+        return [{**d, "score": 1.0} for d in docs]
+    normalized = []
     for d in docs:
-        d["score"] = (d.get("score", 0.0) - min_v) / (max_v - min_v)
-    return docs
+        normalized.append(
+            {**d, "score": (d.get("score", 0.0) - min_v) / (max_v - min_v)}
+        )
+    return normalized
 
 
 def deduplicate_by_source_id(docs: list[dict]) -> list[dict]:
@@ -107,8 +110,12 @@ def deduplicate_by_source_id(docs: list[dict]) -> list[dict]:
             seen.add(source_id)
         result.append(d)
     return result
+```
 
+> 중복 제거 기준은 **청크 단위**인지 **문서 단위**인지 먼저 정해야 합니다.  
+> 서비스 목적에 따라 기준이 달라질 수 있습니다.
 
+```python
 def diversify_by_source(docs: list[dict], max_per_source: int = 2) -> list[dict]:
     """출처별 문서 수를 제한해 다양성을 확보한다."""
     counts: dict[str, int] = {}
@@ -123,9 +130,10 @@ def diversify_by_source(docs: list[dict], max_per_source: int = 2) -> list[dict]
     return result
 
 
-def merge_multi_sources(docs_from_sources: list[dict]) -> list[dict]:
+def merge_multi_sources(docs_from_sources: list[list[dict]]) -> list[dict]:
     """다중 소스 후처리 흐름."""
-    docs = normalize_scores(docs_from_sources)
+    docs = [d for group in docs_from_sources for d in group]
+    docs = normalize_scores(docs)
     docs = deduplicate_by_source_id(docs)
     docs = diversify_by_source(docs)
     docs = rerank(docs)  # 실제 구현에서는 Reranker 적용
