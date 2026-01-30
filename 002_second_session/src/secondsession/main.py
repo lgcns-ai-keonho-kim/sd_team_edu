@@ -7,7 +7,7 @@
 
 from fastapi import FastAPI
 
-from secondsession.api.chat.router.chat_router import ChatRouter
+from secondsession.api.chat.router import register_routes as register_chat_routes
 from secondsession.api.chat.service.chat_service import ChatService
 from secondsession.core.chat.graphs.chat_graph import ChatGraph
 from secondsession.core.common.app_config import AppConfig
@@ -31,8 +31,8 @@ def create_app() -> FastAPI:
     llm_client = LlmClient(config)
     graph = ChatGraph(llm_client=llm_client)
     service = ChatService(graph)
-    chat_router = ChatRouter(service)
-    app.include_router(chat_router.router)
+    app.state.chat_service = service
+    register_chat_routes(app)
 
     return app
 

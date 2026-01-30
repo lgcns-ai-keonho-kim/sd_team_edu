@@ -14,7 +14,15 @@
 
 - 교재 문서: `docs/`
 - 코드 템플릿: `src/thirdsession/`
-- RAG 엔드포인트: `/rag_chat`
+- RAG 엔드포인트: `/api/v1/rag`
+- 채팅 잡 엔드포인트: `/api/v1/chat/*`
+- 업데이트 설계서: `nextStep.md`
+
+## 현재 구현 상태
+
+- 주요 기능은 **TODO/`NotImplementedError`** 상태이며, 학습자가 직접 구현하도록 설계되어 있습니다.
+- 스트리밍은 **답변 → 근거(sources) → done** 순서를 반드시 유지하도록 구현해야 합니다.
+- 잡 기반 API는 스캐폴딩만 제공되며, 큐/워커/상태 저장 로직은 비어 있습니다.
 
 ## 사전 준비
 
@@ -54,98 +62,136 @@ CREATE EXTENSION vector;
 - `src/thirdsession/main.py`
   - 앱 생성 시 의존성 주입 구성
   - 라우터 등록 방식 확정
-- `src/thirdsession/api/chat/router/rag_chat_router.py`
-  - `/rag_chat` 요청 처리 로직 구현
-  - `/rag_chat/stream` 스트리밍 응답 구현
-- `src/thirdsession/api/chat/service/rag_chat_service.py`
+- `src/thirdsession/api/rag/router/rag_router.py`
+  - `/api/v1/rag` 요청 처리 로직 구현
+  - `/api/v1/rag/stream` 스트리밍 응답 구현
+  - 스트리밍 순서: **답변 → 근거(sources) → done**
+- `src/thirdsession/api/rag/service/rag_service.py`
   - 요청 → 유스케이스 호출 → 응답 변환
   - 예외 처리/로깅/메트릭 수집
-- `src/thirdsession/api/chat/model/rag_chat_request.py`
+  - 스트리밍 순서: **답변 → 근거(sources) → done**
+- `src/thirdsession/api/rag/model/request.py`
   - 입력 필드 확장 및 검증 규칙 정의
-- `src/thirdsession/api/chat/model/rag_chat_response.py`
+- `src/thirdsession/api/rag/model/response.py`
   - 응답 포맷(요약/상세/메타) 확장
+- `src/thirdsession/api/rag/router/rag_job_router.py`
+  - 잡 생성 라우터 구현
+- `src/thirdsession/api/rag/router/rag_stream_router.py`
+  - 잡 스트리밍 라우터 구현
+- `src/thirdsession/api/rag/router/rag_status_router.py`
+  - 잡 상태 조회 라우터 구현
+- `src/thirdsession/api/rag/router/rag_cancel_router.py`
+  - 잡 취소 라우터 구현
+- `src/thirdsession/api/rag/service/rag_job_service.py`
+  - 잡 생성/스트리밍/상태/취소 서비스 구현
+- `src/thirdsession/api/rag/model/job_stream_response.py`
+  - 스트리밍 이벤트 타입별 필드 규칙 확정
+
+### 1-1) 잡/스트리밍 아키텍처 확장(설계서 기준)
+
+- `nextStep.md`에 정의된 002 스타일 **잡/스트리밍 구조**를 003에 이식
+- 큐/워커/체크포인터/상태 복구/이벤트 규격 구현
+- `src/thirdsession/core/common/queue/chat_job_queue.py`
+  - 작업 큐 적재/소비 로직 구현
+- `src/thirdsession/core/common/queue/chat_stream_event_queue.py`
+  - 스트리밍 이벤트 큐 적재/소비 로직 구현
+- `src/thirdsession/core/common/worker/worker_base.py`
+  - 워커 실행 루프/작업 조회/처리 로직 구현
+- `src/thirdsession/core/common/worker/async_worker_base.py`
+  - 비동기 워커 실행 루프/작업 조회/처리 로직 구현
 
 ### 2) 유스케이스/파이프라인 구성
 
-- `src/thirdsession/core/chat/usecases/rag_chat_usecase.py`
+- `src/thirdsession/core/rag/graphs/rag_pipeline_graph.py`
   - RAG 파이프라인 구성 및 실행
   - 리트리버/벡터 스토어 주입 구조 확장
   - 프롬프트/후처리/생성 단계 분리
 
 ### 3) 검색/벡터 검색 구성 요소
 
-- `src/thirdsession/core/retrieval/document_model.py`
+- `src/thirdsession/core/rag/retrieval/document_model.py`
   - 문서 유효성 검증 규칙 정의
-- `src/thirdsession/core/retrieval/chunker.py`
+- `src/thirdsession/core/rag/retrieval/chunker.py`
   - 청크 분할 기준/오버랩 규칙 구현
-- `src/thirdsession/core/retrieval/embedding_service.py`
+- `src/thirdsession/core/rag/retrieval/embedding_service.py`
   - 임베딩 API 호출 및 배치 처리 구현
-- `src/thirdsession/core/retrieval/vector_repository.py`
+- `src/thirdsession/core/rag/retrieval/vector_repository.py`
   - 저장/검색 쿼리 및 필터 구현
-- `src/thirdsession/core/retrieval/search_service.py`
+- `src/thirdsession/core/rag/retrieval/search_service.py`
   - 점수 임계값/중복 제거/정렬 규칙 구현
-- `src/thirdsession/core/retrieval/score_normalizer.py`
+- `src/thirdsession/core/rag/retrieval/score_normalizer.py`
   - 거리 → 유사도 변환 및 정규화 구현
-- `src/thirdsession/core/retrieval/metadata_filter.py`
+- `src/thirdsession/core/rag/retrieval/metadata_filter.py`
   - 권한/언어/버전 필터 규칙 구현
-- `src/thirdsession/core/retrieval/filter_expression_builder.py`
+- `src/thirdsession/core/rag/retrieval/filter_expression_builder.py`
   - 필수/선택 조건 분리 및 표현식 구성
-- `src/thirdsession/core/retrieval/metadata_schema_repository.py`
+- `src/thirdsession/core/rag/retrieval/metadata_schema_repository.py`
   - 메타데이터 키/값 조회 로직 구현
-- `src/thirdsession/core/retrieval/hybrid_fusion.py`
+- `src/thirdsession/core/rag/retrieval/hybrid_fusion.py`
   - 가중합/RRF/재정렬 결합 방식 구현
 
 ### 4) 검색 전략 그래프 구성
 
-- `src/thirdsession/core/chat/graphs/query_decompose_graph.py`
+- `src/thirdsession/core/rag/graphs/query_decompose_graph.py`
   - 쿼리 분해 → 병렬 검색 → 병합 그래프 구성
-- `src/thirdsession/core/chat/graphs/search_verify_merge_graph.py`
+- `src/thirdsession/core/rag/graphs/search_verify_merge_graph.py`
   - 검색 → 검증 → 병합 그래프 구성
-- `src/thirdsession/core/chat/graphs/adaptive_hyde_graph.py`
+- `src/thirdsession/core/rag/graphs/adaptive_hyde_graph.py`
   - 적응형 HyDE 그래프 구성
-- `src/thirdsession/core/chat/graphs/rag_pipeline_graph.py`
+- `src/thirdsession/core/rag/graphs/rag_pipeline_graph.py`
   - 서비스 수준 전체 파이프라인 그래프 구성
 
 ### 5) LangGraph 노드 구현
 
-- `src/thirdsession/core/chat/nodes/query_decompose_node.py`
+- `src/thirdsession/core/rag/nodes/query_decompose_node.py`
   - 질문 분해 LLM 호출 및 파싱
-- `src/thirdsession/core/chat/nodes/search_node.py`
+- `src/thirdsession/core/rag/nodes/search_node.py`
   - 리트리버 호출 및 예외 처리
-- `src/thirdsession/core/chat/nodes/async_search_node.py`
+- `src/thirdsession/core/rag/nodes/async_search_node.py`
   - 비동기 병렬 검색 및 동시성 제한
-- `src/thirdsession/core/chat/nodes/verify_node.py`
+- `src/thirdsession/core/rag/nodes/verify_node.py`
   - 검색 결과 검증 로직
-- `src/thirdsession/core/chat/nodes/hyde_node.py`
+- `src/thirdsession/core/rag/nodes/hyde_node.py`
   - HyDE 생성 및 재검색 로직
-- `src/thirdsession/core/chat/nodes/merge_node.py`
+- `src/thirdsession/core/rag/nodes/merge_node.py`
   - 병합/정규화/중복 제거 규칙
-- `src/thirdsession/core/chat/nodes/postprocess_node.py`
+- `src/thirdsession/core/rag/nodes/postprocess_node.py`
   - 후처리 파이프라인 호출
-- `src/thirdsession/core/chat/nodes/generate_node.py`
+- `src/thirdsession/core/rag/nodes/generate_node.py`
   - 답변 생성 및 출력 포맷 규칙
-- `src/thirdsession/core/chat/nodes/stream_answer_node.py`
+- `src/thirdsession/core/rag/nodes/stream_answer_node.py`
   - 답변 스트리밍 규칙
-- `src/thirdsession/core/chat/nodes/stream_sources_node.py`
+- `src/thirdsession/core/rag/nodes/stream_sources_node.py`
   - 근거 스트리밍 규칙
+- `src/thirdsession/core/rag/nodes/safeguard_node.py`
+  - 입력 안전 분류 로직
+- `src/thirdsession/core/rag/nodes/summary_node.py`
+  - 대화 요약 생성 로직
 
 ### 6) 프롬프트 구성
 
-- `src/thirdsession/core/chat/prompts/query_decompose_prompt.py`
+- `src/thirdsession/core/rag/prompts/query_decompose_prompt.py`
   - 쿼리 분해 프롬프트 정의
-- `src/thirdsession/core/chat/prompts/verify_prompt.py`
+- `src/thirdsession/core/rag/prompts/verify_prompt.py`
   - 검색 검증 프롬프트 정의
-- `src/thirdsession/core/chat/prompts/hyde_prompt.py`
+- `src/thirdsession/core/rag/prompts/hyde_prompt.py`
   - HyDE 프롬프트 정의
-- `src/thirdsession/core/chat/prompts/answer_prompt.py`
+- `src/thirdsession/core/rag/prompts/answer_prompt.py`
   - 답변 생성 프롬프트 정의
 
 ### 7) 후처리 구성(LLM 기반)
 
-- `src/thirdsession/core/postprocessing/postprocess_pipeline.py`
+- `src/thirdsession/core/rag/postprocessing/postprocess_pipeline.py`
   - 정책 필터/중복 제거/다양성/재정렬/압축 구현
-- `src/thirdsession/core/postprocessing/llm_reranker.py`
+- `src/thirdsession/core/rag/postprocessing/llm_reranker.py`
   - LLM 재정렬기 구현
+
+### 8) 에러/안전 정책 상수 정비
+
+- `src/thirdsession/core/rag/const/error_code.py`
+  - 도메인별 에러 코드 및 매핑 규칙 확장
+- `src/thirdsession/core/rag/const/safeguard_label.py`
+  - 라벨별 정책(차단/완화/리다이렉트) 문서화/정의
 
 ---
 
@@ -156,7 +202,7 @@ CREATE EXTENSION vector;
 3) 점수 정규화 및 결과 병합  
 4) 후처리(중복 제거/다양성/재정렬/압축)  
 5) 근거 기반 답변 생성  
-6) 스트리밍 응답(답변 → 근거)  
+6) 스트리밍 응답(답변 → 근거 → done)  
 
 ## 실행 방법
 
@@ -173,14 +219,35 @@ uv run python -m thirdsession.main
 ## 기본 엔드포인트
 
 - 헬스 체크: `GET /health`
-- RAG 요청: `POST /rag_chat`
-- RAG 스트리밍: `POST /rag_chat/stream`
+- RAG 요청: `POST /api/v1/rag`
+- RAG 스트리밍: `POST /api/v1/rag/stream`
+- 잡 생성: `POST /api/v1/chat/jobs`
+- 스트리밍: `GET /api/v1/chat/stream/{job_id}`
+- 상태 조회: `GET /api/v1/chat/status/{job_id}`
+- 취소: `POST /api/v1/chat/cancel/{job_id}`
+
+> 주의: 현재 엔드포인트는 학습용 스캐폴딩이며, 실제 동작 로직은 구현되어 있지 않습니다.
+
+## 잡 기반 엔드포인트(스캐폴딩 제공)
+
+`nextStep.md`의 잡 기반 비동기 구조를 반영하는 목표 경로이며, 현재는 스캐폴딩만 제공됩니다.
+
+- 잡 생성: `POST /api/v1/chat/jobs`
+- 스트리밍: `GET /api/v1/chat/stream/{job_id}`
+- 상태 조회: `GET /api/v1/chat/status/{job_id}`
+- 취소: `POST /api/v1/chat/cancel/{job_id}`
+
+> 주의: 위 경로는 스캐폴딩만 제공되며, 큐/워커/상태 저장 로직은 직접 구현해야 합니다.
 
 ## 주요 위치
 
 - 애플리케이션 진입점: `src/thirdsession/main.py`
 - API 영역: `src/thirdsession/api`
+- RAG API(라우터 포함): `src/thirdsession/api/rag`
+- 잡 서비스/모델: `src/thirdsession/api/rag`
 - Core 영역: `src/thirdsession/core`
+- RAG Core: `src/thirdsession/core/rag`
+- 공통 큐/워커: `src/thirdsession/core/common/queue`, `src/thirdsession/core/common/worker`
 
 ## 환경 설정
 
@@ -190,3 +257,19 @@ uv run python -m thirdsession.main
 uv venv .venv
 uv sync
 ```
+
+### 환경 변수(.env)
+
+기본값이 없으므로 **모든 필수 항목을 반드시 설정**해야 합니다.  
+`003_third_session/.env.sample`을 복사해 `.env`를 만들고 값을 채워주세요.
+
+필수
+
+- `GOOGLE_API_KEY`: Google API 키(Gemini)
+- `LLM_MODEL`: LLM 모델명 (예: `gemini-1.5-flash`)
+- `LLM_TEMPERATURE`: LLM 온도 (예: `0.0`)
+
+선택
+
+- `OPENAI_API_KEY`: OpenAI API 키(향후 확장 대비)
+- `REDIS_URL`: Redis 연결 문자열 (예: `redis://localhost:6379/0`)
