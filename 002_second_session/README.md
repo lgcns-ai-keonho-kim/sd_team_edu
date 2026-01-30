@@ -18,6 +18,7 @@
   - 01_langgraph_to_service: 폴백 패턴/병렬/상태 전이
   - 02_backend_service_layer: 토큰·메타데이터 스트리밍, Redis 큐, 엔드포인트 분리
   - 03_langgraph_checkpoint: 체크포인터 개요/원리/인메모리 구현
+  - 04_memory: 대화내역 상태/정규화/트리밍/요약/외부 저장소/세션 관리
 - 코드 템플릿: `src/secondsession/`
 - 워커/큐 템플릿: `src/secondsession/core/worker/`, `src/secondsession/core/common/queue/`
 - 대화 API 엔드포인트: `/chat/*`
@@ -30,7 +31,7 @@
 ### 1) API/서비스 레이어 구현
 
 - `src/secondsession/api/chat/service/chat_service.py`
-  - `create_job`: job_id/trace_id/thread_id 생성, 큐 적재, 체크포인터 연결
+  - `create_job`: job_id/trace_id/thread_id 생성, 큐 적재, thread_id/trace_id 전달
   - `stream_events`: Redis 이벤트 소비 → SSE(`data: {...}`) 전송 → `done` 종료
   - `get_status`: 상태 조회 및 진행률 반환
   - `cancel`: 취소 플래그 기록
@@ -69,7 +70,7 @@
   - 필수: `content`(토큰 문자열)
   - 선택: `node`
 - `metadata` 이벤트
-  - 필수: `content`(JSON 문자열)
+  - 필수: `metadata`(JSON 스키마 객체)
   - 선택: `node`, `error_code`, `safeguard_label`
 - `error` 이벤트
   - 필수: `content`(에러 메시지), `error_code`
@@ -113,6 +114,7 @@
   - 합류(배리어/쿼럼) 정책 정의(최소 1개 성공, 2개 실패 시 폴백)
   - 부분 실패 허용 기준 및 에러 코드 전파 규칙 확정
   - 합류 노드에서 최종 결과 선택 기준(점수/길이/정합성)을 정의
+- 병렬 후보/점수/선택 결과를 보관할 `ChatState` 확장 항목 정의
 
 ### 6) 상태/스키마/프롬프트 규약 정리
 
@@ -141,14 +143,10 @@
   - Redis 체크포인터 생성 로직 구현
   - metadata(node/route/error_code/safeguard_label) 저장 규칙 정의
 - `src/secondsession/core/common/checkpointer/redis_async_checkpointer.py`
-  - 비동기 체크포인터 사용 시 연결/저장 규칙 점검
+  - 참고 자료(본 구현에서는 사용하지 않음)
+  - 공식 라이브러리(`langgraph-checkpoint-redis`) 기반 구현 방향 정리용
 - `src/secondsession/core/common/checkpointer/inmemory_checkpointer.py`
   - 인메모리 체크포인터 구현(버전/정리 정책 포함)
-
-### 8) 선택 과제: 테스트 코드 작성
-
-- `pytest` 기반으로 핵심 흐름 테스트 작성
-- **모킹 없이** 실제 로직 검증
 
 ---
 
